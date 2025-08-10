@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer Vector Group Drawing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .input-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            width: 200px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .drawing-area {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        #transformerSvg {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .info-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .examples {
+            margin-top: 10px;
+        }
+        
+        .example-item {
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .example-item:hover {
+            background-color: #dee2e6;
+        }
+        
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Transformer Vector Group Drawing</h1>
+        <p>Enter a transformer vector group to see its diagram</p>
+    </div>
+    
+    <div class="input-section">
+        <div class="input-group">
+            <label for="vectorGroup">Vector Group:</label>
+            <input type="text" id="vectorGroup" placeholder="e.g., Yy0, Yd1, Dy1, Dd0" value="Yy0">
+            <button onclick="drawVectorGroup()">Draw Diagram</button>
+        </div>
+        <div id="message"></div>
+        
+        <div class="examples">
+            <strong>Examples:</strong>
+            <span class="example-item" onclick="setVectorGroup('Yy0')">Yy0</span>
+            <span class="example-item" onclick="setVectorGroup('Yd1')">Yd1</span>
+            <span class="example-item" onclick="setVectorGroup('Dy1')">Dy1</span>
+            <span class="example-item" onclick="setVectorGroup('Dd0')">Dd0</span>
+            <span class="example-item" onclick="setVectorGroup('Yd5')">Yd5</span>
+            <span class="example-item" onclick="setVectorGroup('Dy5')">Dy5</span>
+            <span class="example-item" onclick="setVectorGroup('Yd11')">Yd11</span>
+            <span class="example-item" onclick="setVectorGroup('Dy11')">Dy11</span>
+        </div>
+    </div>
+    
+    <div class="drawing-area">
+        <svg id="transformerSvg" viewBox="0 0 1000 600">
+            <!-- Initial empty state -->
+            <text x="500" y="300" text-anchor="middle" font-family="Arial" font-size="18" fill="#666">
+                Enter a vector group above to see the diagram
+            </text>
+        </svg>
+    </div>
+    
+    <div class="info-panel">
+        <h3>Vector Group Notation</h3>
+        <p><strong>First letter:</strong> Primary winding connection (Y = Star, D = Delta)</p>
+        <p><strong>Second letter:</strong> Secondary winding connection (y = star, d = delta)</p>
+        <p><strong>Number:</strong> Phase displacement (0, 1, 5, 6, 11) representing 30° steps (0° to 330°)</p>
+    </div>
+
+    <script>
+        // Vector group drawing functions
+        function setVectorGroup(group) {
+            document.getElementById('vectorGroup').value = group;
+            drawVectorGroup();
+        }
+        
+        function showMessage(text, type = 'info') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="${type}">${text}</div>`;
+        }
+        
+        function parseVectorGroup(group) {
+            const match = group.match(/^([YD])([yd])(\d+)$/);
+            if (!match) {
+                return null;
+            }
+            
+            const [, primary, secondary, displacement] = match;
+            const displacementNum = parseInt(displacement);
+            
+            if (![0, 1, 5, 6, 11].includes(displacementNum)) {
+                return null;
+            }
+            
+            return {
+                primary: primary,
+                secondary: secondary,
+                displacement: displacementNum
+            };
+        }
+        
+        function drawVectorGroup() {
+            const input = document.getElementById('vectorGroup').value.trim();
+            const svg = document.getElementById('transformerSvg');
+            
+            if (!input) {
+                showMessage('Please enter a vector group', 'error');
+                return;
+            }
+            
+            const parsed = parseVectorGroup(input);
+            if (!parsed) {
+                showMessage('Invalid vector group format. Use format like Yy0, Yd1, Dy1, Dd0', 'error');
+                return;
+            }
+            
+            showMessage(`Drawing ${input} vector group`, 'success');
+            
+            // Clear SVG
+            svg.innerHTML = '';
+            
+            // Draw transformer diagram
+            drawTransformerDiagram(svg, parsed);
+        }
+        
+        function drawTransformerDiagram(svg, config) {
+            const { primary, secondary, displacement } = config;
+            
+            // Add title
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            title.setAttribute('x', '500');
+            title.setAttribute('y', '30');
+            title.setAttribute('text-anchor', 'middle');
+            title.setAttribute('font-family', 'Arial');
+            title.setAttribute('font-size', '24');
+            title.setAttribute('font-weight', 'bold');
+            title.setAttribute('fill', '#333');
+            title.textContent = `${primary}${secondary}${displacement} Vector Group`;
+            svg.appendChild(title);
+            
+            // Draw transformer core
+            drawTransformerCore(svg);
+            
+            // Draw primary winding
+            drawPrimaryWinding(svg, primary);
+            
+            // Draw secondary winding
+            drawSecondaryWinding(svg, secondary);
+            
+            // Draw vector diagrams
+            drawVectorDiagrams(svg, primary, secondary, displacement);
+            
+            // Add labels
+            addLabels(svg, primary, secondary, displacement);
+        }
+        
+        function drawTransformerCore(svg) {
+            // Core lines
+            const core1 = createSVGElement('line', {
+                x1: '450', y1: '150', x2: '450', y2: '450',
+                stroke: '#333', 'stroke-width': '8'
+            });
+            const core2 = createSVGElement('line', {
+                x1: '550', y1: '150', x2: '550', y2: '450',
+                stroke: '#333', 'stroke-width': '8'
+            });
+            
+            svg.appendChild(core1);
+            svg.appendChild(core2);
+        }
+        
+        function drawPrimaryWinding(svg, type) {
+            const centerX = 400;
+            const centerY = 300;
+            
+            if (type === 'Y') {
+                // Star connection
+                drawStarConnection(svg, centerX, centerY, 'primary');
+            } else {
+                // Delta connection
+                drawDeltaConnection(svg, centerX, centerY, 'primary');
+            }
+            
+            // Winding coils
+            for (let i = 0; i < 3; i++) {
+                const coil = createSVGElement('circle', {
+                    cx: centerX, cy: 200 + i * 100,
+                    r: '25', fill: 'none',
+                    stroke: '#007bff', 'stroke-width': '3'
+                });
+                svg.appendChild(coil);
+            }
+        }
+        
+        function drawSecondaryWinding(svg, type) {
+            const centerX = 600;
+            const centerY = 300;
+            
+            if (type === 'y') {
+                // Star connection
+                drawStarConnection(svg, centerX, centerY, 'secondary');
+            } else {
+                // Delta connection
+                drawDeltaConnection(svg, centerX, centerY, 'secondary');
+            }
+            
+            // Winding coils
+            for (let i = 0; i < 3; i++) {
+                const coil = createSVGElement('circle', {
+                    cx: centerX, cy: 200 + i * 100,
+                    r: '25', fill: 'none',
+                    stroke: '#28a745', 'stroke-width': '3'
+                });
+                svg.appendChild(coil);
+            }
+        }
+        
+        function drawStarConnection(svg, centerX, centerY, side) {
+            const color = side === 'primary' ? '#007bff' : '#28a745';
+            const radius = 60;
+            
+            // Star point
+            const center = createSVGElement('circle', {
+                cx: centerX, cy: centerY,
+                r: '3', fill: color
+            });
+            svg.appendChild(center);
+            
+            // Three lines from center
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * 120 - 90) * Math.PI / 180;
+                const x2 = centerX + radius * Math.cos(angle);
+                const y2 = centerY + radius * Math.sin(angle);
+                
+                const line = createSVGElement('line', {
+                    x1: centerX, y1: centerY,
+                    x2: x2, y2: y2,
+                    stroke: color, 'stroke-width': '2'
+                });
+                svg.appendChild(line);
+                
+                // Terminal points
+                const terminal = createSVGElement('circle', {
+                    cx: x2, cy: y2,
+                    r: '4', fill: color
+                });
+                svg.appendChild(terminal);
+            }
+        }
+        
+        function drawDeltaConnection(svg, centerX, centerY, side) {
+            const color = side === 'primary' ? '#007bff' : '#28a745';
+            const size = 50;
+            
+            // Triangle points
+            const points = [
+                [centerX, centerY - size],
+                [centerX + size * 0.866, centerY + size * 0.5],
+                [centerX - size * 0.866, centerY + size * 0.5]
+            ];
+            
+            // Draw triangle
+            const triangle = createSVGElement('polygon', {
+                points: points.map(p => p.join(',')).join(' '),
+                fill: 'none', stroke: color, 'stroke-width': '2'
+            });
+            svg.appendChild(triangle);
+            
+            // Terminal points
+            points.forEach(point => {
+                const terminal = createSVGElement('circle', {
+                    cx: point[0], cy: point[1],
+                    r: '4', fill: color
+                });
+                svg.appendChild(terminal);
+            });
+        }
+        
+        function drawVectorDiagrams(svg, primary, secondary, displacement) {
+            // Primary vector diagram
+            drawVectorDiagram(svg, 200, 500, 'Primary', primary, 0, '#007bff');
+            
+            // Secondary vector diagram
+            const secondaryAngle = displacement * 30; // 30 degrees per step
+            drawVectorDiagram(svg, 800, 500, 'Secondary', secondary, secondaryAngle, '#28a745');
+            
+            // Displacement label
+            const dispLabel = createSVGElement('text', {
+                x: '500', y: '570',
+                'text-anchor': 'middle',
+                'font-family': 'Arial',
+                'font-size': '16',
+                fill: '#666'
+            });
+            dispLabel.textContent = `Phase displacement: ${displacement} × 30° = ${displacement * 30}°`;
+            svg.appendChild(dispLabel);
+        }
+        
+        function drawVectorDiagram(svg, centerX, centerY, label, connectionType, phaseShift, color) {
+            const radius = 80;
+            
+            // Circle
+            const circle = createSVGElement('circle', {
+                cx: centerX, cy: centerY,
+                r: radius, fill: 'none',
+                stroke: '#ddd', 'stroke-width': '1'
+            });
+            svg.appendChild(circle);
+            
+            // Label
+            const labelText = createSVGElement('text', {
+                x: centerX, y: centerY - radius - 10,
+                'text-anchor': 'middle',
+                'font-family': 'Arial',
+                'font-size': '14',
+                'font-weight': 'bold',
+                fill: color
+            });
+            labelText.textContent = label;
+            svg.appendChild(labelText);
+            
+            // Draw vectors (3 phases)
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * 120 + phaseShift - 90) * Math.PI / 180;
+                const x2 = centerX + (radius - 10) * Math.cos(angle);
+                const y2 = centerY + (radius - 10) * Math.sin(angle);
+                
+                // Vector line
+                const vector = createSVGElement('line', {
+                    x1: centerX, y1: centerY,
+                    x2: x2, y2: y2,
+                    stroke: color, 'stroke-width': '3'
+                });
+                svg.appendChild(vector);
+                
+                // Arrowhead
+                drawArrowhead(svg, centerX, centerY, x2, y2, color);
+                
+                // Phase labels
+                const labelX = centerX + (radius + 15) * Math.cos(angle);
+                const labelY = centerY + (radius + 15) * Math.sin(angle);
+                const phaseLabel = createSVGElement('text', {
+                    x: labelX, y: labelY,
+                    'text-anchor': 'middle',
+                    'font-family': 'Arial',
+                    'font-size': '12',
+                    fill: color
+                });
+                phaseLabel.textContent = ['A', 'B', 'C'][i];
+                svg.appendChild(phaseLabel);
+            }
+        }
+        
+        function drawArrowhead(svg, x1, y1, x2, y2, color) {
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const arrowLength = 8;
+            const arrowAngle = Math.PI / 6;
+            
+            const x3 = x2 - arrowLength * Math.cos(angle - arrowAngle);
+            const y3 = y2 - arrowLength * Math.sin(angle - arrowAngle);
+            const x4 = x2 - arrowLength * Math.cos(angle + arrowAngle);
+            const y4 = y2 - arrowLength * Math.sin(angle + arrowAngle);
+            
+            const arrowhead = createSVGElement('polygon', {
+                points: `${x2},${y2} ${x3},${y3} ${x4},${y4}`,
+                fill: color
+            });
+            svg.appendChild(arrowhead);
+        }
+        
+        function addLabels(svg, primary, secondary, displacement) {
+            // Connection type labels
+            const primaryLabel = createSVGElement('text', {
+                x: '400', y: '120',
+                'text-anchor': 'middle',
+                'font-family': 'Arial',
+                'font-size': '16',
+                'font-weight': 'bold',
+                fill: '#007bff'
+            });
+            primaryLabel.textContent = `Primary: ${primary === 'Y' ? 'Star (Y)' : 'Delta (D)'}`;
+            svg.appendChild(primaryLabel);
+            
+            const secondaryLabel = createSVGElement('text', {
+                x: '600', y: '120',
+                'text-anchor': 'middle',
+                'font-family': 'Arial',
+                'font-size': '16',
+                'font-weight': 'bold',
+                fill: '#28a745'
+            });
+            secondaryLabel.textContent = `Secondary: ${secondary === 'y' ? 'Star (y)' : 'Delta (d)'}`;
+            svg.appendChild(secondaryLabel);
+        }
+        
+        function createSVGElement(tag, attributes) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+            for (const [key, value] of Object.entries(attributes)) {
+                element.setAttribute(key, value);
+            }
+            return element;
+        }
+        
+        // Initialize with default vector group
+        window.onload = function() {
+            drawVectorGroup();
+        };
+        
+        // Allow Enter key to trigger drawing
+        document.getElementById('vectorGroup').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                drawVectorGroup();
+            }
+        });
+    </script>
+</body>
+</html>
