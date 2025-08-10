@@ -117,7 +117,7 @@
     <div class="input-section">
         <div class="input-group">
             <label for="vectorGroup">Vector Group:</label>
-            <input type="text" id="vectorGroup" placeholder="e.g., Yy0, Yd1, Dy1, Dd0" value="Yy0">
+            <input type="text" id="vectorGroup" placeholder="e.g., Yy0, Yd1, Dyn11, Zz0" value="Yy0">
             <button onclick="drawVectorGroup()">Draw Diagram</button>
         </div>
         <div id="message"></div>
@@ -128,10 +128,11 @@
             <span class="example-item" onclick="setVectorGroup('Yd1')">Yd1</span>
             <span class="example-item" onclick="setVectorGroup('Dy1')">Dy1</span>
             <span class="example-item" onclick="setVectorGroup('Dd0')">Dd0</span>
-            <span class="example-item" onclick="setVectorGroup('Yd5')">Yd5</span>
-            <span class="example-item" onclick="setVectorGroup('Dy5')">Dy5</span>
+            <span class="example-item" onclick="setVectorGroup('Dyn11')">Dyn11</span>
+            <span class="example-item" onclick="setVectorGroup('Yz5')">Yz5</span>
+            <span class="example-item" onclick="setVectorGroup('Zz0')">Zz0</span>
             <span class="example-item" onclick="setVectorGroup('Yd11')">Yd11</span>
-            <span class="example-item" onclick="setVectorGroup('Dy11')">Dy11</span>
+            <span class="example-item" onclick="setVectorGroup('Yyn0')">Yyn0</span>
         </div>
     </div>
     
@@ -146,9 +147,10 @@
     
     <div class="info-panel">
         <h3>Vector Group Notation</h3>
-        <p><strong>First letter:</strong> Primary winding connection (Y = Star, D = Delta)</p>
-        <p><strong>Second letter:</strong> Secondary winding connection (y = star, d = delta)</p>
-        <p><strong>Number:</strong> Phase displacement (0, 1, 5, 6, 11) representing 30° steps (0° to 330°)</p>
+        <p><strong>First letter:</strong> Primary winding connection (Y = Star, D = Delta, Z = Zigzag)</p>
+        <p><strong>Second letter:</strong> Secondary winding connection (y = star, d = delta, z = zigzag)</p>
+        <p><strong>Optional 'n':</strong> Indicates neutral connection available</p>
+        <p><strong>Number:</strong> Phase displacement (0-11) representing 30° steps (0° to 330°)</p>
     </div>
 
     <script>
@@ -164,21 +166,24 @@
         }
         
         function parseVectorGroup(group) {
-            const match = group.match(/^([YD])([yd])(\d+)$/);
+            // Support Y/D/Z for primary, y/d/z for secondary, optional 'n' for neutral, displacement 0-11
+            const match = group.match(/^([YDZ])([ydz])(n?)(\d+)$/);
             if (!match) {
                 return null;
             }
             
-            const [, primary, secondary, displacement] = match;
+            const [, primary, secondary, neutral, displacement] = match;
             const displacementNum = parseInt(displacement);
             
-            if (![0, 1, 5, 6, 11].includes(displacementNum)) {
+            // Allow all displacement numbers from 0 to 11
+            if (displacementNum < 0 || displacementNum > 11) {
                 return null;
             }
             
             return {
                 primary: primary,
                 secondary: secondary,
+                neutral: neutral === 'n',
                 displacement: displacementNum
             };
         }
@@ -208,7 +213,7 @@
         }
         
         function drawTransformerDiagram(svg, config) {
-            const { primary, secondary, displacement } = config;
+            const { primary, secondary, displacement, neutral } = config;
             
             // Add title
             const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -219,7 +224,8 @@
             title.setAttribute('font-size', '24');
             title.setAttribute('font-weight', 'bold');
             title.setAttribute('fill', '#333');
-            title.textContent = `${primary}${secondary}${displacement} Vector Group`;
+            const neutralText = neutral ? 'n' : '';
+            title.textContent = `${primary}${secondary}${neutralText}${displacement} Vector Group`;
             svg.appendChild(title);
             
             // Draw transformer core
@@ -235,7 +241,7 @@
             drawVectorDiagrams(svg, primary, secondary, displacement);
             
             // Add labels
-            addLabels(svg, primary, secondary, displacement);
+            addLabels(svg, primary, secondary, displacement, neutral);
         }
         
         function drawTransformerCore(svg) {
@@ -260,9 +266,12 @@
             if (type === 'Y') {
                 // Star connection
                 drawStarConnection(svg, centerX, centerY, 'primary');
-            } else {
+            } else if (type === 'D') {
                 // Delta connection
                 drawDeltaConnection(svg, centerX, centerY, 'primary');
+            } else if (type === 'Z') {
+                // Zigzag connection
+                drawZigzagConnection(svg, centerX, centerY, 'primary');
             }
             
             // Winding coils
@@ -283,9 +292,12 @@
             if (type === 'y') {
                 // Star connection
                 drawStarConnection(svg, centerX, centerY, 'secondary');
-            } else {
+            } else if (type === 'd') {
                 // Delta connection
                 drawDeltaConnection(svg, centerX, centerY, 'secondary');
+            } else if (type === 'z') {
+                // Zigzag connection
+                drawZigzagConnection(svg, centerX, centerY, 'secondary');
             }
             
             // Winding coils
@@ -329,6 +341,37 @@
                     r: '4', fill: color
                 });
                 svg.appendChild(terminal);
+            }
+        }
+        
+        function drawZigzagConnection(svg, centerX, centerY, side) {
+            const color = side === 'primary' ? '#007bff' : '#28a745';
+            const size = 40;
+            
+            // Draw zigzag pattern - interconnected lines forming a Z shape for each phase
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * 120) * Math.PI / 180;
+                const baseX = centerX + 50 * Math.cos(angle);
+                const baseY = centerY + 50 * Math.sin(angle);
+                
+                // Create zigzag pattern
+                const zigzag = createSVGElement('path', {
+                    d: `M ${baseX - size/2} ${baseY - size/4} L ${baseX} ${baseY + size/4} L ${baseX + size/2} ${baseY - size/4}`,
+                    fill: 'none', stroke: color, 'stroke-width': '2'
+                });
+                svg.appendChild(zigzag);
+                
+                // Terminal points
+                const terminal1 = createSVGElement('circle', {
+                    cx: baseX - size/2, cy: baseY - size/4,
+                    r: '3', fill: color
+                });
+                const terminal2 = createSVGElement('circle', {
+                    cx: baseX + size/2, cy: baseY - size/4,
+                    r: '3', fill: color
+                });
+                svg.appendChild(terminal1);
+                svg.appendChild(terminal2);
             }
         }
         
@@ -452,8 +495,11 @@
             svg.appendChild(arrowhead);
         }
         
-        function addLabels(svg, primary, secondary, displacement) {
-            // Connection type labels
+        function addLabels(svg, primary, secondary, displacement, neutral = false) {
+            // Connection type labels with neutral indicator
+            const primaryConnectionName = primary === 'Y' ? 'Star (Y)' : primary === 'D' ? 'Delta (D)' : 'Zigzag (Z)';
+            const secondaryConnectionName = secondary === 'y' ? 'Star (y)' : secondary === 'd' ? 'Delta (d)' : 'Zigzag (z)';
+            
             const primaryLabel = createSVGElement('text', {
                 x: '400', y: '120',
                 'text-anchor': 'middle',
@@ -462,7 +508,7 @@
                 'font-weight': 'bold',
                 fill: '#007bff'
             });
-            primaryLabel.textContent = `Primary: ${primary === 'Y' ? 'Star (Y)' : 'Delta (D)'}`;
+            primaryLabel.textContent = `Primary: ${primaryConnectionName}`;
             svg.appendChild(primaryLabel);
             
             const secondaryLabel = createSVGElement('text', {
@@ -473,7 +519,8 @@
                 'font-weight': 'bold',
                 fill: '#28a745'
             });
-            secondaryLabel.textContent = `Secondary: ${secondary === 'y' ? 'Star (y)' : 'Delta (d)'}`;
+            const neutralText = neutral ? ' (with neutral)' : '';
+            secondaryLabel.textContent = `Secondary: ${secondaryConnectionName}${neutralText}`;
             svg.appendChild(secondaryLabel);
         }
         
